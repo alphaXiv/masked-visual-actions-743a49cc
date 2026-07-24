@@ -4,12 +4,12 @@ set -eo pipefail
 
 echo "=== SMOKE START $(date -u +%FT%TZ) ==="
 nvidia-smi || true
-df -h /hfcache || true
+df -h /shared || true
 
 export DIFFSYNTH_DOWNLOAD_SOURCE=huggingface
-export DIFFSYNTH_MODEL_BASE_PATH=/hfcache/models
-export HF_HOME=/hfcache/hf
-export PIP_CACHE_DIR=/hfcache/pip
+export DIFFSYNTH_MODEL_BASE_PATH=/shared/models
+export HF_HOME=/shared/hf
+export PIP_CACHE_DIR=/shared/pip
 
 t0=$(date +%s)
 git clone -q https://github.com/modelscope/DiffSynth-Studio.git /tmp/DiffSynth-Studio
@@ -20,9 +20,9 @@ cd - >/dev/null
 echo "TIMING install_s=$(( $(date +%s) - t0 ))"
 
 t0=$(date +%s)
-python inference/download_weights.py --out /hfcache/mva-loras
+python inference/download_weights.py --out /shared/mva-loras
 echo "TIMING lora_download_s=$(( $(date +%s) - t0 ))"
-ls -la /hfcache/mva-loras
+ls -la /shared/mva-loras
 
 t0=$(date +%s)
 python scripts/smoke.py

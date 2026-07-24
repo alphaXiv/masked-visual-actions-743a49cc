@@ -50,7 +50,7 @@ def main():
 
     for name, expert in [("high", "dit"), ("low", "dit2")]:
         t0 = time.time()
-        pipe.load_lora(getattr(pipe, expert), f"/hfcache/mva-loras/masked_world_lora_{name}.safetensors", alpha=1.0)
+        pipe.load_lora(getattr(pipe, expert), f"/shared/mva-loras/masked_world_lora_{name}.safetensors", alpha=1.0)
         print(f"TIMING lora_{name}_load_s={time.time()-t0:.0f}")
 
     control = synthetic_control(H, W, F)

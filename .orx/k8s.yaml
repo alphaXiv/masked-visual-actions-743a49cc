@@ -25,15 +25,19 @@ spec:
             limits:
               nvidia.com/gpu: "1"
           volumeMounts:
-            - name: hfcache
-              mountPath: /hfcache
+            - name: shared
+              mountPath: /shared
+            - name: scratch
+              mountPath: /scratch
             - name: shm
               mountPath: /dev/shm
       volumes:
-        - name: hfcache
-          hostPath:
-            path: /var/orx-hf-cache
-            type: DirectoryOrCreate
+        - name: shared
+          persistentVolumeClaim:
+            claimName: mva-shared
+        - name: scratch
+          emptyDir:
+            sizeLimit: 400Gi
         - name: shm
           emptyDir:
             medium: Memory
