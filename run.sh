@@ -10,8 +10,11 @@ export PIP_CACHE_DIR=/shared/pip
 export MUJOCO_GL=osmesa
 
 t0=$(date +%s)
-pip install -q "numpy==1.26.4" "mujoco==2.3.7" "robosuite==1.4.1" \
-    "imageio[ffmpeg]" av "huggingface_hub[hf_transfer]" pillow scikit-image 2>&1 | tail -2
+# robosuite deps installed manually: its evdev/pynput teleop deps need kernel
+# headers and are unused here.
+pip install -q "numpy==1.26.4" "mujoco==2.3.7" scipy numba termcolor mujoco-python-viewer \
+    "imageio[ffmpeg]" av "huggingface_hub[hf_transfer]" pillow scikit-image opencv-python-headless 2>&1 | tail -2
+pip install -q --no-deps "robosuite==1.4.1" 2>&1 | tail -1
 echo "TIMING install_s=$(( $(date +%s) - t0 ))"
 
 t0=$(date +%s)
