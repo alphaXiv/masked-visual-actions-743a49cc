@@ -1,0 +1,19 @@
+{
+  "droid/clip000": {"frame": 80, "boxes": [[500, 0, 720, 200]]},
+  "droid/clip001": {"frame": 40, "boxes": [[420, 50, 680, 380]]},
+  "droid/clip002": {"frame": 40, "boxes": [[460, 60, 832, 420]]},
+  "droid/clip003": {"frame": 40, "boxes": [[400, 100, 680, 400]]},
+  "droid/clip004": {"frame": 80, "boxes": [[330, 0, 760, 400]]},
+  "droid/clip005": {"frame": 80, "boxes": [[500, 60, 832, 440]]},
+  "droid/clip006": {"frame": 80, "boxes": [[540, 0, 720, 140]]},
+  "droid/clip007": {"frame": 80, "boxes": [[180, 0, 832, 340]]},
+  "droid/clip008": {"frame": 80, "boxes": [[560, 0, 832, 480]]},
+  "droid/clip009": {"frame": 80, "boxes": [[580, 150, 832, 420]]},
+  "droid/clip010": {"frame": 40, "boxes": [[360, 0, 800, 480]]},
+  "droid/clip011": {"frame": 0, "boxes": [[570, 90, 810, 400]]},
+  "droid/clip012": {"frame": 40, "boxes": [[420, 0, 700, 340]]},
+  "droid/clip013": {"frame": 40, "boxes": [[320, 120, 660, 400]]},
+  "droid/clip014": {"frame": 40, "boxes": [[40, 40, 600, 420]]},
+  "droid/clip015": {"frame": 80, "boxes": [[300, 0, 720, 300]]},
+  "aloha/*": {"frame": 40, "boxes": [[0, 180, 310, 400], [320, 120, 640, 380]]}
+}

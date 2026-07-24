@@ -24,6 +24,51 @@ DROID_N, ALOHA_N = 16, 8
 OUT = "/tmp/evalset"
 
 
+
+ANNOT = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "annotations.json")))
+
+
+def annotation_for(set_name, clip_name):
+    return ANNOT.get(f"{set_name}/{clip_name}") or ANNOT.get(f"{set_name}/*")
+
+
+def sam2_masks_boxes(frames, anchor, boxes):
+    """Propagate per-object box prompts from `anchor` in both directions."""
+    import tempfile
+    from PIL import Image
+    from sam2.sam2_video_predictor import SAM2VideoPredictor
+    pred = sam2_masks.pred
+    if pred is None:
+        pred = SAM2VideoPredictor.from_pretrained("facebook/sam2.1-hiera-large", device="cuda")
+        sam2_masks.pred = pred
+    F = len(frames)
+    h, w = frames[0].shape[:2]
+    obj_masks = [[np.zeros((h, w), bool)] * F for _ in boxes]
+    with tempfile.TemporaryDirectory() as td:
+        for i, f in enumerate(frames):
+            Image.fromarray(f).save(f"{td}/{i:05d}.jpg", quality=92)
+        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+            state = pred.init_state(video_path=td)
+            for oi, box in enumerate(boxes):
+                pred.add_new_points_or_box(state, frame_idx=anchor, obj_id=oi,
+                                           box=np.array(box, np.float32))
+            for reverse in (False, True):
+                for fi, obj_ids, logits in pred.propagate_in_video(state, start_frame_idx=anchor, reverse=reverse):
+                    for k, oid in enumerate(obj_ids):
+                        obj_masks[oid][fi] = (logits[k, 0] > 0).cpu().numpy()
+            pred.reset_state(state)
+    return [list(m) for m in obj_masks]
+
+
+def process_clip_annotated(frames, set_name, clip_name):
+    ann = annotation_for(set_name, clip_name)
+    if ann is None:
+        return None, None
+    obj_masks = sam2_masks_boxes(frames, int(ann["frame"]), ann["boxes"])
+    union = [np.logical_or.reduce([om[i] for om in obj_masks]) for i in range(len(frames))]
+    return union, obj_masks
+
+
 def motion_prompts(frames, n_obj):
     """Point prompts per object from the moving region at the max-motion frame."""
     gs = [cv2.cvtColor(f, cv2.COLOR_RGB2GRAY) for f in frames]
@@ -135,9 +180,9 @@ def build_droid():
         frames = [f[:, 11:843].copy() for f in frames]
         if len(frames) < N_FRAMES:
             print(f"droid clip{ci}: only {len(frames)} frames, skip"); continue
-        union, obj_masks = process_clip(frames, n_obj=1)
+        union, obj_masks = process_clip_annotated(frames, "droid", f"clip{ci:03d}")
         if union is None:
-            print(f"droid clip{ci}: no motion found, skip"); continue
+            print(f"droid clip{ci}: no annotation, skip"); continue
         meta = save_clip(f"{OUT}/droid/clip{ci:03d}", frames, union, prompt, 15,
                          {"episode_index": int(row["episode_index"]), **clip_stats(union)},
                          obj_masks=obj_masks)
@@ -158,9 +203,9 @@ def build_aloha():
         frames = ffmpeg_extract(vid, float(row[fcol]), N_FRAMES, 3, 640, 480)
         if len(frames) < N_FRAMES:
             print(f"aloha clip{ci}: only {len(frames)} frames, skip"); continue
-        union, obj_masks = process_clip(frames, n_obj=2)
+        union, obj_masks = process_clip_annotated(frames, "aloha", f"clip{ci:03d}")
         if union is None:
-            print(f"aloha clip{ci}: no motion found, skip"); continue
+            print(f"aloha clip{ci}: no annotation, skip"); continue
         meta = save_clip(f"{OUT}/aloha/clip{ci:03d}", frames, union,
                          "two robot arms prepare coffee with a coffee machine", 16,
                          {"episode_index": int(row["episode_index"]), **clip_stats(union)},
