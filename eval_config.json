@@ -1,1 +1,1 @@
-{"name": "real_mva", "variant": "mva", "subsets": ["droid", "aloha"], "controls": ["dense", "ee", "skel"], "steps": 40, "gpus": 4}
+{"name": "real_mva", "variant": "mva", "subsets": ["droid", "aloha"], "controls": ["dense", "ee", "skel"], "steps": 40, "gpus": 8}
