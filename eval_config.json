@@ -1,0 +1,1 @@
+{"name": "real_base_seeds", "variant": "base", "subsets": ["droid"], "controls": ["dense"], "steps": 40, "gpus": 4, "seed_salts": ["s1", "s2"]}
