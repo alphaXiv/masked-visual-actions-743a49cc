@@ -145,7 +145,7 @@ e.g. held-out ALOHA: LPIPS 0.094 (MVA) vs 0.217 (base), with zero MVA failure fl
 All generation ran on the operator's **Kubernetes** cluster: 2 nodes × 8 **NVIDIA RTX PRO 6000
 Blackwell** (96 GB). Peak concurrency **16 GPUs**; 416 generated videos (81 frames, 480p,
 ~13.7 s per denoising step; the full two-expert pipeline fits one GPU at 69 GiB). Elapsed wall
-time **5.4 h** end to end, including environment probes, weight distribution to a shared
+time **4.7 h** of Kubernetes campaign time end to end, including environment probes, weight distribution to a shared
 PVC, three evaluation-set builds, six evaluation runs, and analysis.
 
 ## Experiment lineage
