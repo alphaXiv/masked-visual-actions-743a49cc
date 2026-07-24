@@ -1,0 +1,1 @@
+{"name": "real_mva_50", "variant": "mva", "subsets": ["droid"], "controls": ["dense"], "steps": 50, "gpus": 4}
