@@ -1,1 +1,1 @@
-{"name": "real_base", "variant": "base", "subsets": ["droid", "aloha"], "controls": ["dense", "ee", "skel"], "steps": 40, "gpus": 8}
+{"name": "robust_base", "variant": "base", "subsets": ["droid", "aloha", "sim_panda", "sim_ur5e", "sim_sawyer"], "controls": ["dense"], "steps": 40, "gpus": 8, "seed_offset": 1}
