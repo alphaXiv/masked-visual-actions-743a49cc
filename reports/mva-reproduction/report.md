@@ -53,7 +53,7 @@ Two tracks, five subsets, three control types per clip:
   bimanual rig the checkpoint never saw; 640×480). Robot masks: SAM2 video propagation from
   hand-corrected box prompts (fully automatic prompting grounded the wrong objects — see
   *Limitations*). A **preregistered sanity filter** (mask area 1–45% of frame, ≤2 empty-mask
-  frames; fixed before any generation ran) excludes 3 DROID clips.
+  frames; fixed before any generation ran) excludes 4 DROID clips.
 - **URDF-rendered sim.** 16 scripted robosuite (MuJoCo) pick-lift episodes with *exact* robot
   masks from segmentation renders — Panda (in-domain embodiment) plus UR5e and Sawyer (held
   out). These are the "reproducible URDF-rendered control clips": ground truth, dense robot
@@ -127,7 +127,7 @@ left the ordering and effect sizes unchanged: at 50 steps the robot-PSNR gap is 
 
 ## Limitations
 
-- Our evaluation set (37 kept clips, rebuilt from public data) is not the authors'; absolute
+- Our evaluation set (36 kept clips, rebuilt from public data) is not the authors'; absolute
   numbers are not comparable to the paper's tables, even where they happen to coincide.
 - DROID sources are 180p upscaled 2.6×, softening all metrics equally across conditions.
 - The sparse-control comparison probes the released dense-trained checkpoint, not the paper's

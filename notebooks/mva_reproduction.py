@@ -255,7 +255,7 @@ more faithful and more controllable under dense masked-robot controls; dense bea
 advantage persists — indeed grows — on held-out embodiments, and failures concentrate exactly
 where the paper says (sparse controls, base model, out-of-domain).
 
-Caveats: rebuilt 40-clip public eval set (36 after the preregistered mask filter) (not the authors'); DROID sources are 180p upscaled;
+Caveats: rebuilt 40-clip public eval set, 36 clips after the preregistered mask filter (not the authors' clips); DROID sources are 180p upscaled;
 sparse-control comparison probes the dense-trained checkpoint (the paper's sparse checkpoints
 were never released); 30–40 denoising steps for main runs (50-step robustness check unchanged);
 robot-region PSNR is harsh in absolute terms — compare across conditions, not against 100%.
