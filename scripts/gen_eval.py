@@ -43,7 +43,8 @@ def task_list(root):
     for s in CFG["subsets"]:
         for cd in sorted(glob.glob(f"{root}/{s}/clip*")):
             for ctl in CFG["controls"]:
-                tasks.append((s, cd, ctl))
+                for salt in CFG.get("seed_salts", [""]):
+                    tasks.append((s, cd, ctl, salt))
     return tasks
 
 
@@ -57,14 +58,14 @@ def load_pipeline():
     return pipe
 
 
-def gen_one(pipe, clip_dir, ctl, out_dir):
+def gen_one(pipe, clip_dir, ctl, out_dir, salt=""):
     from PIL import Image
     from inference.infer import DEFAULT_NEGATIVE_PROMPT
     meta = json.load(open(f"{clip_dir}/meta.json"))
     h, w, nf = meta["h"], meta["w"], meta["n_frames"]
     control = [Image.fromarray(np.asarray(f)) for f in read_video(f"{clip_dir}/control_{ctl}.mp4")][:nf]
     ref = Image.open(f"{clip_dir}/ref.png").convert("RGB").resize((w, h))
-    seed = zlib.crc32(os.path.basename(clip_dir).encode()) % 2 ** 31
+    seed = zlib.crc32((os.path.basename(clip_dir) + salt).encode()) % 2 ** 31
     video = pipe(
         prompt=meta["prompt"], negative_prompt=DEFAULT_NEGATIVE_PROMPT,
         control_video=control, reference_image=ref,
@@ -87,12 +88,12 @@ def worker(idx, nworkers):
     lp = lpips.LPIPS(net="alex").to("cuda").eval()
     from eval_metrics import video_metrics
     pipe = None
-    for s, cd, ctl in mine:
+    for s, cd, ctl, salt in mine:
         clip = os.path.basename(cd)
-        od = f"{GEN_ROOT}/{s}/{clip}/{ctl}"
+        od = f"{GEN_ROOT}/{s}/{clip}/{ctl}" + (f"_{salt}" if salt else "")
         mfile = f"{od}/metrics.json"
         if os.path.exists(mfile):
-            print(f"skip done {s}/{clip}/{ctl}")
+            print(f"skip done {od}")
             continue
         if pipe is None:
             t0 = time.time()
@@ -101,7 +102,7 @@ def worker(idx, nworkers):
         os.makedirs(od, exist_ok=True)
         t0 = time.time()
         try:
-            frames, meta, seed = gen_one(pipe, cd, ctl, od)
+            frames, meta, seed = gen_one(pipe, cd, ctl, od, salt)
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -110,7 +111,7 @@ def worker(idx, nworkers):
         gt = [np.asarray(f) for f in read_video(f"{cd}/gt.mp4")][:len(frames)]
         masks = np.load(f"{cd}/masks.npz")["mask"].astype(bool)
         m = video_metrics(gt, frames, masks, lpips_model=lp)
-        m.update(subset=s, clip=clip, control=ctl, variant=CFG["variant"],
+        m.update(subset=s, clip=clip, control=ctl, variant=CFG["variant"], salt=salt,
                  seed=seed, gen_s=round(time.time() - t0, 1), steps=CFG.get("steps", 30))
         json.dump(m, open(mfile, "w"), indent=1)
         print("ITEM " + json.dumps(m))
