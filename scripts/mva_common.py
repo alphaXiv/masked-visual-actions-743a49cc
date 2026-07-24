@@ -63,35 +63,41 @@ def ee_point_from_mask(mask):
     return int(x), int(y)
 
 
-def build_controls(frames, masks, ee_radius_frac=0.10):
-    """From GT frames + robot masks, build dense / ee / skeleton control videos."""
+def build_controls(frames, masks, ee_radius_frac=0.10, obj_masks=None):
+    """From GT frames + robot masks, build dense / ee / skeleton control videos.
+
+    obj_masks: optional list (per object) of per-frame masks; EE points and
+    skeletons are computed per object (e.g. each arm of a bimanual rig)."""
     from skimage.morphology import skeletonize
+    if obj_masks is None:
+        obj_masks = [masks]
     dense, ee, skel = [], [], []
-    h, w = masks[0].shape
+    h, w = np.asarray(masks[0]).shape
     r = int(ee_radius_frac * max(h, w))
-    for f, m in zip(frames, masks):
-        m = m.astype(bool)
+    yy, xx = np.ogrid[:h, :w]
+    for fi, (f, m) in enumerate(zip(frames, masks)):
+        m = np.asarray(m).astype(bool)
         g = np.full_like(f, GRAY)
         d = g.copy()
         d[m] = f[m]
         dense.append(d)
 
-        pt = ee_point_from_mask(m)
         e_img = g.copy()
-        if pt is not None:
-            yy, xx = np.ogrid[:h, :w]
-            disc = (yy - pt[1]) ** 2 + (xx - pt[0]) ** 2 <= r * r
-            keep = disc & m
-            e_img[keep] = f[keep]
-        ee.append(e_img)
-
         s_pil = Image.fromarray(g)
         dr = ImageDraw.Draw(s_pil)
-        sk = np.argwhere(skeletonize(m))
-        for y, x in sk:
-            dr.ellipse([x - 1, y - 1, x + 1, y + 1], fill=(255, 255, 255))
-        if pt is not None:
-            dr.ellipse([pt[0] - 6, pt[1] - 6, pt[0] + 6, pt[1] + 6], fill=(255, 40, 40))
+        for om in obj_masks:
+            mo = np.asarray(om[fi]).astype(bool)
+            pt = ee_point_from_mask(mo)
+            if pt is not None:
+                disc = (yy - pt[1]) ** 2 + (xx - pt[0]) ** 2 <= r * r
+                keep = disc & mo
+                e_img[keep] = f[keep]
+            sk = np.argwhere(skeletonize(mo))
+            for y, x in sk:
+                dr.ellipse([x - 1, y - 1, x + 1, y + 1], fill=(255, 255, 255))
+            if pt is not None:
+                dr.ellipse([pt[0] - 6, pt[1] - 6, pt[0] + 6, pt[1] + 6], fill=(255, 40, 40))
+        ee.append(e_img)
         skel.append(np.asarray(s_pil))
     return dense, ee, skel
 
@@ -126,10 +132,10 @@ def upload_dir(local_dir, repo_path):
     print(f"uploaded {local_dir} -> {ARTIFACT_REPO}/{repo_path}")
 
 
-def save_clip(out_dir, gt, masks, prompt, fps, extra=None):
+def save_clip(out_dir, gt, masks, prompt, fps, extra=None, obj_masks=None):
     """Write one eval clip folder: gt/ref/controls/masks/meta + preview sheet."""
     os.makedirs(out_dir, exist_ok=True)
-    dense, ee, skel = build_controls(gt, masks)
+    dense, ee, skel = build_controls(gt, masks, obj_masks=obj_masks)
     save_video(gt, f"{out_dir}/gt.mp4", fps)
     Image.fromarray(gt[0]).save(f"{out_dir}/ref.png")
     save_video(dense, f"{out_dir}/control_dense.mp4", fps)

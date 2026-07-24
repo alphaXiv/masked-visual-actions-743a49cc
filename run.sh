@@ -11,7 +11,7 @@ export PIP_CACHE_DIR=/shared/pip
 export SAM2_BUILD_CUDA=0
 
 t0=$(date +%s)
-pip install -q transformers scikit-image opencv-python-headless pandas pyarrow \
+pip install -q scikit-image opencv-python-headless pandas pyarrow \
     "imageio[ffmpeg]" av "huggingface_hub[hf_transfer]" pillow 2>&1 | tail -1
 pip install -q "git+https://github.com/facebookresearch/sam2.git" 2>&1 | tail -1
 echo "TIMING install_s=$(( $(date +%s) - t0 ))"
