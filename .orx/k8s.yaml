@@ -15,15 +15,12 @@ spec:
             - |
               set -e
               apt-get update -qq >/dev/null
-              apt-get install -y -qq git git-lfs ffmpeg libgl1 libglib2.0-0 curl >/dev/null
+              apt-get install -y -qq git git-lfs ffmpeg libgl1 libglib2.0-0 libosmesa6 curl >/dev/null
               exec bash -c "$ORX_SCRIPT"
           resources:
             requests:
-              nvidia.com/gpu: "1"
-              cpu: "16"
-              memory: "160Gi"
-            limits:
-              nvidia.com/gpu: "1"
+              cpu: "32"
+              memory: "64Gi"
           volumeMounts:
             - name: shared
               mountPath: /shared

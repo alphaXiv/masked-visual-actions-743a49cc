@@ -1,30 +1,20 @@
 #!/usr/bin/env bash
-# Root smoke: env install, weight downloads into shared cache, tiny inference timing.
+# Data-sim: robosuite URDF-rendered eval clips (Panda in-domain, UR5e/Sawyer held-out).
 set -eo pipefail
 
-echo "=== SMOKE START $(date -u +%FT%TZ) ==="
-nvidia-smi || true
+echo "=== DATA-SIM START $(date -u +%FT%TZ) ==="
 df -h /shared || true
 
-export DIFFSYNTH_DOWNLOAD_SOURCE=huggingface
-export DIFFSYNTH_MODEL_BASE_PATH=/shared/models
 export HF_HOME=/shared/hf
 export PIP_CACHE_DIR=/shared/pip
+export MUJOCO_GL=osmesa
 
 t0=$(date +%s)
-git clone -q https://github.com/modelscope/DiffSynth-Studio.git /tmp/DiffSynth-Studio
-cd /tmp/DiffSynth-Studio && git checkout -q 3743b1307caf2562af60d475b22d4b6be68e7cd0
-pip install -q -e . 2>&1 | tail -2
-pip install -q "huggingface_hub[hf_transfer]" imageio[ffmpeg] 2>&1 | tail -1
-cd - >/dev/null
+pip install -q "numpy==1.26.4" "mujoco==2.3.7" "robosuite==1.4.1" \
+    "imageio[ffmpeg]" av "huggingface_hub[hf_transfer]" pillow scikit-image 2>&1 | tail -2
 echo "TIMING install_s=$(( $(date +%s) - t0 ))"
 
 t0=$(date +%s)
-python inference/download_weights.py --out /shared/mva-loras
-echo "TIMING lora_download_s=$(( $(date +%s) - t0 ))"
-ls -la /shared/mva-loras
-
-t0=$(date +%s)
-python scripts/smoke.py
-echo "TIMING smoke_total_s=$(( $(date +%s) - t0 ))"
-echo "=== SMOKE DONE $(date -u +%FT%TZ) ==="
+python scripts/data_sim.py
+echo "TIMING data_sim_s=$(( $(date +%s) - t0 ))"
+echo "=== DATA-SIM DONE $(date -u +%FT%TZ) ==="
