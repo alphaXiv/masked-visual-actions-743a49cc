@@ -1,0 +1,1 @@
+{"name": "real_base_50", "variant": "base", "subsets": ["droid"], "controls": ["dense"], "steps": 50, "gpus": 4}
