@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mva-{{ORX_RUN}}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: run
+          image: pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+              apt-get update -qq >/dev/null
+              apt-get install -y -qq git git-lfs ffmpeg libgl1 libglib2.0-0 curl >/dev/null
+              exec bash -c "$ORX_SCRIPT"
+          resources:
+            requests:
+              nvidia.com/gpu: "1"
+              cpu: "16"
+              memory: "160Gi"
+            limits:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: hfcache
+              mountPath: /hfcache
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: hfcache
+          hostPath:
+            path: /var/orx-hf-cache
+            type: DirectoryOrCreate
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Gi
