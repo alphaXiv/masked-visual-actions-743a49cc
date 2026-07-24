@@ -123,7 +123,9 @@ flag counts as relative rates across conditions, not absolute failure probabilit
 
 Re-running DROID dense with two extra seeds and with 50 denoising steps (the library default)
 left the ordering and effect sizes unchanged: at 50 steps the robot-PSNR gap is +7.7 dB (vs
-+7.8 dB at 40); across the two extra seeds it is +8.3 dB and +7.5 dB.
++7.8 dB at 40); across the two extra seeds it is +8.3 dB and +7.5 dB. A further second-seed sweep
+of the dense condition across *all five subsets* (80 more videos) reproduced every ordering —
+e.g. held-out ALOHA: LPIPS 0.094 (MVA) vs 0.217 (base), with zero MVA failure flags.
 
 ## Limitations
 
@@ -141,9 +143,9 @@ left the ordering and effect sizes unchanged: at 50 steps the robot-PSNR gap is 
 ## Compute
 
 All generation ran on the operator's **Kubernetes** cluster: 2 nodes × 8 **NVIDIA RTX PRO 6000
-Blackwell** (96 GB). Peak concurrency **16 GPUs**; ~300 generated videos (81 frames, 480p,
+Blackwell** (96 GB). Peak concurrency **16 GPUs**; 416 generated videos (81 frames, 480p,
 ~13.7 s per denoising step; the full two-expert pipeline fits one GPU at 69 GiB). Elapsed wall
-time **4.1 h** end to end, including environment probes, weight distribution to a shared
+time **4.7 h** end to end, including environment probes, weight distribution to a shared
 PVC, three evaluation-set builds, six evaluation runs, and analysis.
 
 ## Experiment lineage

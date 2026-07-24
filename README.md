@@ -83,7 +83,7 @@ from hand-corrected box prompts. Untested: planning, policy evaluation, inverse 
 finetuning.
 
 **Compute:** Kubernetes (CoreWeave), 2×8 NVIDIA RTX PRO 6000 Blackwell 96 GB, peak **16
-concurrent GPUs**, ~300 generated videos (81f/480p), 4.1 h wall time.
+concurrent GPUs**, 416 generated videos (81f/480p), 4.7 h wall time.
 
 📄 **[Detailed report](reports/mva-reproduction/report.md)** · 📓
 **[Tutorial notebook](notebooks/mva_reproduction.py)** (`marimo edit notebooks/mva_reproduction.py`)
@@ -105,6 +105,7 @@ the branch's committed `run.sh` + `.orx/k8s.yaml` define the work and resources.
 | [eval sim base](../../tree/orx/eval-sim-base-wan2-2-fun-control-no-lora-on-same) | 48 gens: base, matched seeds | `bash run.sh` | 48/48 ok → `gen/sim_base` | 8 GPUs, ~45 min |
 | [50-step MVA](../../tree/orx/eval-real-50-steps-mva-dense-droid) / [base](../../tree/orx/eval-real-50-steps-base-dense-droid) | robustness: DROID dense at library-default 50 steps | `bash run.sh` | gap unchanged (LPIPS 0.106 vs 0.197; robot PSNR +7.7 dB) | 4+4 GPUs |
 | [extra-seed MVA](../../tree/orx/eval-real-seeds-mva-dense-droid-2-extra-seeds) / [base](../../tree/orx/eval-real-seeds-base-dense-droid-2-extra-seeds) | robustness: DROID dense, 2 extra seeds per clip | `bash run.sh` | gaps +8.3 / +7.5 dB — stable across seeds | 4+4 GPUs |
+| [second-seed all subsets, MVA](../../tree/orx/robustness-second-seed-dense-controls-all-subset) / [base](../../tree/orx/robustness-second-seed-dense-controls-all-subset-2) | robustness: dense controls, every subset, new seed (80 gens) | `bash run.sh` | every ordering replicated (ALOHA 0.094 vs 0.217 LPIPS) | 8+8 GPUs |
 
 `main` was not run as an experiment (publication surface). Earlier iterations (data-real v1/v2,
 first sim-eval attempts) are preserved on their `orx/*` branches; run ids and notes live in the
