@@ -1,93 +1,90 @@
-"""Per-clip video metrics: full-frame + robot-region + background-region
-fidelity, and optical-flow trajectory adherence."""
-import cv2
+"""Reference-based metrics for generated robot videos.
+
+All metrics compare a generated video against the ground-truth clip, using the
+per-frame robot masks saved with the eval set:
+  full-frame  : LPIPS / SSIM / PSNR (reconstruction fidelity)
+  robot region: PSNR / SSIM / flow-EPE inside the dilated robot mask
+                (trajectory adherence: did the arm go where the control said?)
+  background  : PSNR / SSIM outside the mask (scene preservation)
+  motion      : Farneback flow magnitude ratio + flow EPE (temporal dynamics)
+
+Preregistered failure flags (thresholds fixed before any eval ran):
+  static_video       motion_ratio < 0.25  (model ignored the control, froze)
+  scene_transform    ssim_bg < 0.50       (background replaced/hallucinated)
+  robot_hallucination psnr_robot < 14.0   (arm missing or morphed)
+"""
 import numpy as np
 
-
-def _dilate(m, r):
-    k = np.ones((2 * r + 1, 2 * r + 1), np.uint8)
-    return cv2.dilate(m.astype(np.uint8), k).astype(bool)
+THRESH = {"static_video": 0.25, "scene_transform": 0.50, "robot_hallucination": 14.0}
 
 
-def region_psnr(a, b, mask):
-    if mask.sum() < 10:
+def _gray(f):
+    return (0.299 * f[..., 0] + 0.587 * f[..., 1] + 0.114 * f[..., 2])
+
+
+def _psnr_masked(a, b, m):
+    if m.sum() < 10:
         return None
-    mse = ((a[mask].astype(np.float64) - b[mask]) ** 2).mean()
-    return float(10 * np.log10(255.0 ** 2 / max(mse, 1e-8)))
+    mse = ((a[m].astype(np.float64) - b[m].astype(np.float64)) ** 2).mean()
+    return float(10 * np.log10(255.0 ** 2 / max(mse, 1e-9)))
 
 
-def region_ssim(a, b, mask):
-    from skimage.metrics import structural_similarity
-    if mask.sum() < 10:
-        return None
-    _, smap = structural_similarity(a, b, channel_axis=2, full=True, data_range=255)
-    return float(smap.mean(axis=2)[mask].mean())
+def _dilate(m, k):
+    import cv2
+    return cv2.dilate(m.astype(np.uint8), np.ones((k, k), np.uint8)).astype(bool)
 
 
-def flow_seq(frames):
-    gs = [cv2.cvtColor(f, cv2.COLOR_RGB2GRAY) for f in frames]
-    return [cv2.calcOpticalFlowFarneback(gs[i - 1], gs[i], None, 0.5, 3, 15, 3, 5, 1.2, 0)
-            for i in range(1, len(gs))]
+def _flow(a, b):
+    import cv2
+    return cv2.calcOpticalFlowFarneback(a, b, None, 0.5, 3, 21, 3, 5, 1.1, 0)
 
 
 def video_metrics(gt, gen, masks, lpips_model=None, device="cuda"):
-    """gt/gen: lists of HxWx3 uint8 (same length); masks: per-frame robot bool."""
+    """gt, gen: lists of HxWx3 uint8 (same length); masks: FxHxW bool."""
     import torch
-    F = min(len(gt), len(gen))
-    gt, gen, masks = gt[:F], gen[:F], masks[:F]
-    robot = [_dilate(m, 4) for m in masks]
-    bg = [~_dilate(m, 12) for m in masks]
+    from skimage.metrics import structural_similarity
+    F = min(len(gt), len(gen), len(masks))
+    gt, gen = gt[:F], gen[:F]
+    out = {k: [] for k in ["ssim", "psnr", "psnr_robot", "psnr_bg", "ssim_robot", "ssim_bg"]}
+    epe_all, epe_robot, mag_gt, mag_gen = [], [], [], []
 
-    out = {k: [] for k in ("psnr", "ssim", "psnr_robot", "ssim_robot", "psnr_bg", "ssim_bg")}
-    for a, b, rm, bm in zip(gt, gen, robot, bg):
-        full = np.ones(rm.shape, bool)
-        out["psnr"].append(region_psnr(a, b, full))
-        out["ssim"].append(region_ssim(a, b, full))
-        out["psnr_robot"].append(region_psnr(a, b, rm))
-        out["ssim_robot"].append(region_ssim(a, b, rm))
-        out["psnr_bg"].append(region_psnr(a, b, bm))
-        out["ssim_bg"].append(region_ssim(a, b, bm))
-    res = {k: round(float(np.mean([v for v in vs if v is not None])), 4) if any(v is not None for v in vs) else None
-           for k, vs in out.items()}
+    for t in range(F):
+        a, b = gt[t], gen[t]
+        m = _dilate(masks[t], 9)
+        bg = ~_dilate(masks[t], 21)
+        out["psnr"].append(_psnr_masked(a, b, np.ones(m.shape, bool)))
+        out["psnr_robot"].append(_psnr_masked(a, b, m))
+        out["psnr_bg"].append(_psnr_masked(a, b, bg))
+        ga, gb = _gray(a), _gray(b)
+        s, smap = structural_similarity(ga, gb, data_range=255.0, full=True)
+        out["ssim"].append(float(s))
+        out["ssim_robot"].append(float(smap[m].mean()) if m.sum() > 10 else None)
+        out["ssim_bg"].append(float(smap[bg].mean()) if bg.sum() > 10 else None)
+        if t > 0:
+            fa = _flow(_gray(gt[t - 1]).astype(np.uint8), ga.astype(np.uint8))
+            fb = _flow(_gray(gen[t - 1]).astype(np.uint8), gb.astype(np.uint8))
+            d = np.linalg.norm(fa - fb, axis=-1)
+            epe_all.append(float(d.mean()))
+            if m.sum() > 10:
+                epe_robot.append(float(d[m].mean()))
+            mag_gt.append(float(np.linalg.norm(fa, axis=-1).mean()))
+            mag_gen.append(float(np.linalg.norm(fb, axis=-1).mean()))
+
+    res = {k: float(np.mean([v for v in vs if v is not None])) for k, vs in out.items()}
+    res["epe"] = float(np.mean(epe_all))
+    res["epe_robot"] = float(np.mean(epe_robot)) if epe_robot else None
+    res["motion_ratio"] = float(np.sum(mag_gen) / max(np.sum(mag_gt), 1e-6))
 
     if lpips_model is not None:
-        with torch.no_grad():
-            vals = []
-            for i in range(0, F, 8):
-                a = torch.from_numpy(np.stack(gt[i:i + 8])).permute(0, 3, 1, 2).float().to(device) / 127.5 - 1
-                b = torch.from_numpy(np.stack(gen[i:i + 8])).permute(0, 3, 1, 2).float().to(device) / 127.5 - 1
-                vals += lpips_model(a, b).flatten().cpu().tolist()
-        res["lpips"] = round(float(np.mean(vals)), 4)
-        # background LPIPS: gray out the (dilated) robot region in both videos
-        with torch.no_grad():
-            vals = []
-            for i in range(0, F, 8):
-                ga = np.stack(gt[i:i + 8]).copy()
-                gb = np.stack(gen[i:i + 8]).copy()
-                for j, rm in enumerate(robot[i:i + 8]):
-                    ga[j][rm] = 128
-                    gb[j][rm] = 128
-                a = torch.from_numpy(ga).permute(0, 3, 1, 2).float().to(device) / 127.5 - 1
-                b = torch.from_numpy(gb).permute(0, 3, 1, 2).float().to(device) / 127.5 - 1
-                vals += lpips_model(a, b).flatten().cpu().tolist()
-        res["lpips_bg"] = round(float(np.mean(vals)), 4)
+        vals = []
+        for t in range(0, F, 4):
+            ta = torch.from_numpy(gt[t].copy()).permute(2, 0, 1)[None].float().to(device) / 127.5 - 1
+            tb = torch.from_numpy(gen[t].copy()).permute(2, 0, 1)[None].float().to(device) / 127.5 - 1
+            with torch.no_grad():
+                vals.append(float(lpips_model(ta, tb).item()))
+        res["lpips"] = float(np.mean(vals))
 
-    fg, fe = flow_seq(gt), flow_seq(gen)
-    epe_all, epe_robot, mag_gt, mag_gen = [], [], [], []
-    for i, (fa, fb) in enumerate(zip(fg, fe)):
-        d = np.linalg.norm(fa - fb, axis=2)
-        epe_all.append(d.mean())
-        rm = robot[i + 1]
-        if rm.sum() > 10:
-            epe_robot.append(d[rm].mean())
-        mag_gt.append(np.linalg.norm(fa, axis=2).mean())
-        mag_gen.append(np.linalg.norm(fb, axis=2).mean())
-    res["epe"] = round(float(np.mean(epe_all)), 4)
-    res["epe_robot"] = round(float(np.mean(epe_robot)), 4) if epe_robot else None
-    res["motion_ratio"] = round(float(np.sum(mag_gen) / max(np.sum(mag_gt), 1e-6)), 4)
-
-    # preregistered failure flags
-    res["flag_scene_transform"] = bool(res["ssim_bg"] is not None and res["ssim_bg"] < 0.5)
-    res["flag_static"] = bool(res["motion_ratio"] < 0.3)
-    res["flag_robot_halluc"] = bool(res["psnr_robot"] is not None and res["psnr_robot"] < 14.0)
+    res["flag_static"] = bool(res["motion_ratio"] < THRESH["static_video"])
+    res["flag_scene_transform"] = bool(res["ssim_bg"] < THRESH["scene_transform"])
+    res["flag_robot_halluc"] = bool(res["psnr_robot"] < THRESH["robot_hallucination"])
     return res

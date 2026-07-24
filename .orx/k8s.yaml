@@ -19,11 +19,11 @@ spec:
               exec bash -c "$ORX_SCRIPT"
           resources:
             requests:
-              nvidia.com/gpu: "1"
-              cpu: "16"
-              memory: "160Gi"
+              nvidia.com/gpu: "4"
+              cpu: "40"
+              memory: "440Gi"
             limits:
-              nvidia.com/gpu: "1"
+              nvidia.com/gpu: "4"
           volumeMounts:
             - name: shared
               mountPath: /shared
@@ -37,7 +37,7 @@ spec:
             claimName: mva-shared
         - name: scratch
           emptyDir:
-            sizeLimit: 400Gi
+            sizeLimit: 300Gi
         - name: shm
           emptyDir:
             medium: Memory
