@@ -1,0 +1,2 @@
+{"name": "sim_base", "variant": "base", "subsets": ["sim_panda", "sim_ur5e", "sim_sawyer"],
+ "controls": ["dense", "ee", "skel"], "steps": 30, "gpus": 8}
