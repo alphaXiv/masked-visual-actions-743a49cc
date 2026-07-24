@@ -3,9 +3,10 @@
 
 Driven by eval_config.json on the experiment branch:
   {"name": "...", "variant": "mva"|"base", "subsets": [...],
-   "controls": ["dense","ee","skel"], "steps": 30, "gpus": 4}
+   "controls": ["dense","ee","skel"], "steps": 40, "gpus": 4}
 
 Modes:
+  --plan                   download the eval set, print the task list size
   --worker I --workers N   generate+score shard I (pin one GPU via CUDA_VISIBLE_DEVICES)
   --aggregate              collect item JSONs, print aggregate table, upload to HF
 
@@ -22,6 +23,7 @@ import zlib
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mva_common import read_video, save_video, contact_sheet, ARTIFACT_REPO
 
 CFG = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "eval_config.json")))
@@ -48,7 +50,6 @@ def task_list(root):
 
 
 def load_pipeline():
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from inference.infer import build_pipeline
     pipe = build_pipeline(HF_BASE)
     if CFG["variant"] == "mva":
@@ -64,12 +65,12 @@ def gen_one(pipe, clip_dir, ctl, out_dir):
     h, w, nf = meta["h"], meta["w"], meta["n_frames"]
     control = [Image.fromarray(np.asarray(f)) for f in read_video(f"{clip_dir}/control_{ctl}.mp4")][:nf]
     ref = Image.open(f"{clip_dir}/ref.png").convert("RGB").resize((w, h))
-    seed = zlib.crc32(os.path.basename(clip_dir).encode()) % 2 ** 31
+    seed = zlib.crc32(f"{os.path.basename(os.path.dirname(clip_dir))}/{os.path.basename(clip_dir)}".encode()) % 2 ** 31
     video = pipe(
         prompt=meta["prompt"], negative_prompt=DEFAULT_NEGATIVE_PROMPT,
         control_video=control, reference_image=ref,
         height=h, width=w, num_frames=nf,
-        num_inference_steps=CFG.get("steps", 30), seed=seed, tiled=True,
+        num_inference_steps=CFG.get("steps", 40), seed=seed, tiled=True,
     )
     frames = [np.asarray(f.convert("RGB")) for f in video]
     save_video(frames, f"{out_dir}/gen.mp4", meta["fps"])
@@ -111,11 +112,15 @@ def worker(idx, nworkers):
         masks = np.load(f"{cd}/masks.npz")["mask"].astype(bool)
         m = video_metrics(gt, frames, masks, lpips_model=lp)
         m.update(subset=s, clip=clip, control=ctl, variant=CFG["variant"],
-                 seed=seed, gen_s=round(time.time() - t0, 1), steps=CFG.get("steps", 30))
+                 seed=seed, gen_s=round(time.time() - t0, 1), steps=CFG.get("steps", 40))
         json.dump(m, open(mfile, "w"), indent=1)
         print("ITEM " + json.dumps(m))
-        contact_sheet([("gt", gt), (f"ctl:{ctl}", [np.asarray(x) for x in read_video(f'{cd}/control_{ctl}.mp4')]),
-                       (f"gen:{CFG['variant']}", frames)], f"{od}/sheet.jpg")
+        try:
+            ctl_frames = [np.asarray(x) for x in read_video(f"{cd}/control_{ctl}.mp4")]
+            contact_sheet([("gt", gt), (f"ctl:{ctl}", ctl_frames),
+                           (f"gen:{CFG['variant']}", frames)], f"{od}/sheet.jpg")
+        except Exception:
+            pass
 
 
 def aggregate():
@@ -123,18 +128,19 @@ def aggregate():
     for mf in glob.glob(f"{GEN_ROOT}/*/*/*/metrics.json"):
         rows.append(json.load(open(mf)))
     print(f"aggregating {len(rows)} items")
-    keys = ["lpips", "ssim", "psnr", "psnr_robot", "ssim_bg", "psnr_bg", "epe_robot", "motion_ratio"]
+    keys = ["lpips", "ssim", "psnr", "psnr_robot", "ssim_robot", "ssim_bg", "psnr_bg",
+            "epe", "epe_robot", "motion_ratio"]
     agg = {}
     for s in CFG["subsets"]:
         for ctl in CFG["controls"]:
-            sel = [r for r in rows if r["subset"] == s and r["control"] == ctl and "lpips" in r]
+            sel = [r for r in rows if r.get("subset") == s and r.get("control") == ctl and "lpips" in r]
             if not sel:
                 continue
-            e = {k: [round(float(np.mean([r[k] for r in sel if r[k] is not None])), 4),
-                     round(float(np.std([r[k] for r in sel if r[k] is not None])), 4)] for k in keys}
+            e = {k: [round(float(np.mean([r[k] for r in sel if r.get(k) is not None])), 4),
+                     round(float(np.std([r[k] for r in sel if r.get(k) is not None])), 4)] for k in keys}
             e["n"] = len(sel)
             for fl in ["flag_static", "flag_scene_transform", "flag_robot_halluc"]:
-                e[fl] = int(sum(r[fl] for r in sel))
+                e[fl] = int(sum(bool(r.get(fl)) for r in sel))
             agg[f"{s}/{ctl}"] = e
     print("AGG " + json.dumps({"name": CFG["name"], "variant": CFG["variant"], "agg": agg}))
     json.dump({"config": CFG, "items": rows, "agg": agg}, open(f"{GEN_ROOT}/results.json", "w"), indent=1)
@@ -152,8 +158,12 @@ if __name__ == "__main__":
     ap.add_argument("--worker", type=int, default=None)
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--aggregate", action="store_true")
+    ap.add_argument("--plan", action="store_true")
     a = ap.parse_args()
-    if a.aggregate:
+    if a.plan:
+        root = eval_set_dir()
+        print(f"PLAN tasks={len(task_list(root))} root={root}")
+    elif a.aggregate:
         aggregate()
     else:
         worker(a.worker or 0, a.workers)
