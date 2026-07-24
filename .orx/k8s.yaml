@@ -15,12 +15,15 @@ spec:
             - |
               set -e
               apt-get update -qq >/dev/null
-              apt-get install -y -qq git git-lfs ffmpeg libgl1 libglib2.0-0 libosmesa6 curl >/dev/null
+              apt-get install -y -qq git git-lfs ffmpeg libgl1 libglib2.0-0 curl >/dev/null
               exec bash -c "$ORX_SCRIPT"
           resources:
             requests:
-              cpu: "32"
-              memory: "64Gi"
+              nvidia.com/gpu: "4"
+              cpu: "40"
+              memory: "440Gi"
+            limits:
+              nvidia.com/gpu: "4"
           volumeMounts:
             - name: shared
               mountPath: /shared
@@ -34,7 +37,7 @@ spec:
             claimName: mva-shared
         - name: scratch
           emptyDir:
-            sizeLimit: 400Gi
+            sizeLimit: 300Gi
         - name: shm
           emptyDir:
             medium: Memory

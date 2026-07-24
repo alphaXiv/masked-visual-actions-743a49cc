@@ -78,8 +78,8 @@ def video_metrics(gt, gen, masks, lpips_model=None, device="cuda"):
     if lpips_model is not None:
         vals = []
         for t in range(0, F, 4):
-            ta = torch.from_numpy(gt[t]).permute(2, 0, 1)[None].float().to(device) / 127.5 - 1
-            tb = torch.from_numpy(gen[t]).permute(2, 0, 1)[None].float().to(device) / 127.5 - 1
+            ta = torch.from_numpy(gt[t].copy()).permute(2, 0, 1)[None].float().to(device) / 127.5 - 1
+            tb = torch.from_numpy(gen[t].copy()).permute(2, 0, 1)[None].float().to(device) / 127.5 - 1
             with torch.no_grad():
                 vals.append(float(lpips_model(ta, tb).item()))
         res["lpips"] = float(np.mean(vals))
