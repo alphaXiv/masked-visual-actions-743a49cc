@@ -63,6 +63,7 @@ def build_pipeline(base_model_id, low_vram=False):
             ModelConfig(model_id=base_model_id, origin_file_pattern="Wan2.1_VAE.pth", **kwargs),
         ],
         tokenizer_config=ModelConfig(model_id="Wan-AI/Wan2.1-T2V-1.3B", origin_file_pattern="google/umt5-xxl/"),
+        redirect_common_files=False,  # redirect target repo 404s on HF; keep originals
         **({"vram_limit": torch.cuda.mem_get_info("cuda")[1] / (1024 ** 3) - 2} if low_vram else {}),
     )
     return pipe
