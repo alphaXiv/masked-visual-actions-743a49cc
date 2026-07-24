@@ -83,7 +83,7 @@ from hand-corrected box prompts. Untested: planning, policy evaluation, inverse 
 finetuning.
 
 **Compute:** Kubernetes (CoreWeave), 2×8 NVIDIA RTX PRO 6000 Blackwell 96 GB, peak **16
-concurrent GPUs**, 416 generated videos (81f/480p), 4.7 h wall time.
+concurrent GPUs**, 416 generated videos (81f/480p), 5.4 h wall time.
 
 📄 **[Detailed report](reports/mva-reproduction/report.md)** · 📓
 **[Tutorial notebook](notebooks/mva_reproduction.py)** (`marimo edit notebooks/mva_reproduction.py`)
