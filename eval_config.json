@@ -1,0 +1,1 @@
+{"name": "sim_mva", "variant": "mva", "subsets": ["sim_panda", "sim_ur5e", "sim_sawyer"], "controls": ["dense", "ee", "skel"], "steps": 40, "gpus": 4}
