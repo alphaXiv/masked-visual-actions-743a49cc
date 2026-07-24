@@ -19,8 +19,11 @@ spec:
               exec bash -c "$ORX_SCRIPT"
           resources:
             requests:
-              cpu: "32"
-              memory: "64Gi"
+              nvidia.com/gpu: "8"
+              cpu: "100"
+              memory: "800Gi"
+            limits:
+              nvidia.com/gpu: "8"
           volumeMounts:
             - name: shared
               mountPath: /shared
