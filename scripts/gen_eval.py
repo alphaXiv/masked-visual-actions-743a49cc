@@ -65,7 +65,7 @@ def gen_one(pipe, clip_dir, ctl, out_dir):
     h, w, nf = meta["h"], meta["w"], meta["n_frames"]
     control = [Image.fromarray(np.asarray(f)) for f in read_video(f"{clip_dir}/control_{ctl}.mp4")][:nf]
     ref = Image.open(f"{clip_dir}/ref.png").convert("RGB").resize((w, h))
-    seed = zlib.crc32(f"{os.path.basename(os.path.dirname(clip_dir))}/{os.path.basename(clip_dir)}".encode()) % 2 ** 31
+    seed = (zlib.crc32(f"{os.path.basename(os.path.dirname(clip_dir))}/{os.path.basename(clip_dir)}".encode()) + 7919 * CFG.get("seed_offset", 0)) % 2 ** 31
     video = pipe(
         prompt=meta["prompt"], negative_prompt=DEFAULT_NEGATIVE_PROMPT,
         control_video=control, reference_image=ref,
